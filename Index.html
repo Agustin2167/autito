@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pseudo-AR: Autito 3D</title>
+    <!-- Cargamos model-viewer de Google -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: black;
+            font-family: sans-serif;
+        }
+
+        /* Contenedor principal */
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Fondo de la Cámara */
+        #camera-feed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* Visor del Modelo 3D (sobre la cámara) */
+        model-viewer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            z-index: 2;
+            --poster-color: transparent;
+        }
+
+        /* Botones e Interfaz */
+        #ui-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid white;
+            border-radius: 25px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+        }
+
+        button:active {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        #ios-permission-btn {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <!-- 1. La cámara web de fondo -->
+        <video id="camera-feed" autoplay playsinline muted></video>
+
+        <!-- 2. Tu autito 3D cargado desde GitHub -->
+        <model-viewer id="obj-viewer"
+            src="https://github.com/Agustin2167/autito/raw/refs/heads/main/Baseauto.glb"
+            alt="Autito 3D"
+            camera-controls="false"
+            interaction-prompt="none"
+            shadow-intensity="1"
+            ar-status="not-presenting">
+        </model-viewer>
+
+        <!-- 3. Botones de acción -->
+        <div id="ui-container">
+            <button id="ios-permission-btn">Activar Sensores (iOS)</button>
+            <button id="place-btn">Colocar Objeto</button>
+            <button id="reset-btn" style="display: none;">Colocar otro</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('camera-feed');
+        const viewer = document.getElementById('obj-viewer');
+        const placeBtn = document.getElementById('place-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const iosBtn = document.getElementById('ios-permission-btn');
+
+        let objectPlaced = false;
+
+        // --- 1. CONFIGURACIÓN DE CÁMARA ---
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" },
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accediendo a la cámara:", err);
+                alert("No se pudo acceder a la cámara. Asegúrate de estar usando HTTPS y aceptar permisos.");
+            }
+        }
+
+        // --- 2. FIJAR Y REINICIAR ---
+        placeBtn.addEventListener('click', () => {
+            if (!objectPlaced) {
+                objectPlaced = true;
+                placeBtn.style.display = 'none';
+                resetBtn.style.display = 'block';
+                viewer.shadowIntensity = 1.5;
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            objectPlaced = false;
+            resetBtn.style.display = 'none';
+            placeBtn.style.display = 'block';
+            viewer.shadowIntensity = 1;
+        });
+
+        // --- 3. MOVIMIENTO CON GIROSCOPIO ---
+        function handleOrientation(event) {
+            if (objectPlaced) return;
+
+            const alpha = event.alpha || 0;
+            const beta = event.beta || 0; 
+
+            const clampedBeta = Math.max(0, Math.min(180, beta));
+            viewer.cameraOrbit = `${alpha}deg ${clampedBeta}deg auto`;
+        }
+
+        // --- 4. GESTIÓN DE PERMISOS ---
+        function setupSensors() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                iosBtn.style.display = 'block';
+                iosBtn.addEventListener('click', () => {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(response => {
+                            if (response == 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation, true);
+                                iosBtn.style.display = 'none';
+                                startCamera();
+                            }
+                        })
+                        .catch(console.error);
+                });
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                startCamera();
+            }
+        }
+
+        window.addEventListener('load', setupSensors);
+    </script>
+</body>
+</html>
