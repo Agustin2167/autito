@@ -17,14 +17,12 @@
             font-family: sans-serif;
         }
 
-        /* Contenedor principal */
         #container {
             position: relative;
             width: 100%;
             height: 100%;
         }
 
-        /* Fondo de la Cámara */
         #camera-feed {
             position: absolute;
             top: 0;
@@ -35,7 +33,6 @@
             z-index: 1;
         }
 
-        /* Visor del Modelo 3D (sobre la cámara) */
         model-viewer {
             position: absolute;
             top: 0;
@@ -47,7 +44,6 @@
             --poster-color: transparent;
         }
 
-        /* Botones e Interfaz */
         #ui-container {
             position: absolute;
             bottom: 20px;
@@ -83,20 +79,22 @@
 <body>
 
     <div id="container">
-        <!-- 1. La cámara web de fondo -->
+        <!-- 1. Cámara -->
         <video id="camera-feed" autoplay playsinline muted></video>
 
-        <!-- 2. Tu autito 3D cargado desde GitHub -->
+        <!-- 2. Autito 3D ajustado -->
         <model-viewer id="obj-viewer"
-            src="https://github.com/Agustin2167/autito/raw/refs/heads/main/Baseauto.glb"
+            src="Baseauto.glb"
             alt="Autito 3D"
             camera-controls="false"
             interaction-prompt="none"
             shadow-intensity="1"
+            bounds="tight"
+            camera-target="auto auto auto"
             ar-status="not-presenting">
         </model-viewer>
 
-        <!-- 3. Botones de acción -->
+        <!-- 3. Controles -->
         <div id="ui-container">
             <button id="ios-permission-btn">Activar Sensores (iOS)</button>
             <button id="place-btn">Colocar Objeto</button>
@@ -113,7 +111,6 @@
 
         let objectPlaced = false;
 
-        // --- 1. CONFIGURACIÓN DE CÁMARA ---
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -123,11 +120,10 @@
                 video.srcObject = stream;
             } catch (err) {
                 console.error("Error accediendo a la cámara:", err);
-                alert("No se pudo acceder a la cámara. Asegúrate de estar usando HTTPS y aceptar permisos.");
+                alert("No se pudo acceder a la cámara. Revisa los permisos.");
             }
         }
 
-        // --- 2. FIJAR Y REINICIAR ---
         placeBtn.addEventListener('click', () => {
             if (!objectPlaced) {
                 objectPlaced = true;
@@ -144,7 +140,6 @@
             viewer.shadowIntensity = 1;
         });
 
-        // --- 3. MOVIMIENTO CON GIROSCOPIO ---
         function handleOrientation(event) {
             if (objectPlaced) return;
 
@@ -155,7 +150,6 @@
             viewer.cameraOrbit = `${alpha}deg ${clampedBeta}deg auto`;
         }
 
-        // --- 4. GESTIÓN DE PERMISOS ---
         function setupSensors() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 iosBtn.style.display = 'block';
