@@ -3,94 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Autito AR - Cámara y Piso</title>
+    <title>Autito AR - Piso Forzado</title>
     <!-- Cargamos model-viewer de Google -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: black;
-            font-family: sans-serif;
-        }
-
-        #container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* 1. Fondo de la cámara siempre visible */
-        #camera-feed {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-        }
-
-        /* 2. Capa 3D sobre la cámara (fondo transparente) */
-        model-viewer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: transparent;
-            z-index: 2;
-            --poster-color: transparent;
-        }
-
-        /* 3. Botón personalizado de AR */
-        #ar-button {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 16px 28px;
-            font-size: 18px;
-            font-weight: bold;
-            color: white;
-            background: linear-gradient(135deg, #007bff, #00d2ff);
-            border: none;
-            border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            cursor: pointer;
-            z-index: 100;
-        }
-
-        #ar-button:active {
-            transform: translateX(-50%) scale(0.96);
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: black; font-family: sans-serif; }
+        #container { position: relative; width: 100%; height: 100%; }
+        #camera-feed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        model-viewer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; z-index: 2; --poster-color: transparent; }
+        #ar-button { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 16px 28px; font-size: 18px; font-weight: bold; color: white; background: linear-gradient(135deg, #007bff, #00d2ff); border: none; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 100; display: none; /* Oculto hasta confirmar compatibilidad */ }
     </style>
 </head>
 <body>
 
     <div id="container">
-        <!-- Feed de la Cámara (siempre abierto de fondo) -->
+        <!-- Feed de la Cámara -->
         <video id="camera-feed" autoplay playsinline muted></video>
 
-        <!-- Visor 3D con AR Nativo activado ('ar') -->
+        <!-- Visor 3D con AR Nativo FORZADO -->
         <model-viewer id="obj-viewer"
             src="Baseauto.glb"
             alt="Autito 3D"
-            
-            ar                      /* Activa AR */
-            ar-modes="webxr scene-viewer quick-look" /* Intenta WebXR para usar cámara del HTML */
-            ar-scale="auto"         /* Mantiene escala real */
-            camera-controls         /* Permite girar el auto */
-            touch-action="pan-y"    /* Scroll fluido */
-            shadow-intensity="1.5"    /* Sombra realista */
+            ar
+            /* Eliminamos 'webxr' para forzar los modos nativos que detectan piso */
+            ar-modes="scene-viewer quick-look" 
+            ar-scale="auto"
+            camera-controls
+            shadow-intensity="1.5"
             bounds="tight">
             
-            <!-- Botón para ingresar al modo AR Nativo -->
             <button slot="ar-button" id="ar-button">
-                📍 Colocar en mi piso
+                📍 Poner en mi piso real
             </button>
 
         </model-viewer>
@@ -99,8 +42,18 @@
     <script>
         const video = document.getElementById('camera-feed');
         const viewer = document.getElementById('obj-viewer');
+        const arButton = document.getElementById('ar-button');
 
-        // Iniciar Cámara Trasera siempre de fondo
+        // 1. Mostrar botón solo si AR Nativo es compatible
+        viewer.addEventListener('ar-status', (event) => {
+            if (event.detail.status !== 'unsupported') {
+                arButton.style.display = 'block';
+            } else {
+                alert("Tu celular o navegador no es compatible con AR de piso.");
+            }
+        });
+
+        // 2. Iniciar Cámara de fondo
         async function startCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -109,24 +62,11 @@
                 });
                 video.srcObject = stream;
             } catch (err) {
-                console.error("Error accediendo a la cámara:", err);
-                // Si falla, el visor AR nativo aún podría funcionar
+                console.error("Error cámara:", err);
             }
         }
 
-        // Arrancamos la cámara al cargar la página
         window.addEventListener('load', startCamera);
-
-        // Opcional: Detener la cámara del HTML si se activa el modo AR nativo
-        viewer.addEventListener('ar-status', (event) => {
-            if (event.detail.status === 'session-started') {
-                video.srcObject.getTracks().forEach(track => track.stop());
-                video.style.display = 'none';
-            } else if (event.detail.status === 'not-presenting') {
-                startCamera();
-                video.style.display = 'block';
-            }
-        });
     </script>
 </body>
 </html>
