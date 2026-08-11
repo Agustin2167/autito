@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Autito AR - Cámara Directa</title>
+    <title>Autito AR - Piso Real</title>
     <!-- Cargamos model-viewer de Google -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <style>
@@ -13,172 +13,62 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: black;
+            background-color: #121212;
             font-family: sans-serif;
         }
 
-        #container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* 1. Fondo de la cámara a pantalla completa */
-        #camera-feed {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-        }
-
-        /* 2. Capa 3D sobre la cámara */
+        /* El visor ocupa toda la pantalla con fondo oscuro al inicio */
         model-viewer {
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
-            background-color: transparent;
-            z-index: 2;
             --poster-color: transparent;
         }
 
-        /* 3. Botones */
-        #ui-container {
+        /* Botón personalizado para entrar en modo AR */
+        #ar-button {
             position: absolute;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-        }
-
-        button {
-            padding: 14px 28px;
-            font-size: 16px;
+            padding: 16px 28px;
+            font-size: 18px;
             font-weight: bold;
-            background-color: rgba(0, 0, 0, 0.8);
             color: white;
-            border: 1px solid white;
+            background: linear-gradient(135deg, #007bff, #00d2ff);
+            border: none;
             border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
             cursor: pointer;
-            backdrop-filter: blur(5px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 100;
         }
 
-        button:active {
-            transform: scale(0.95);
-        }
-
-        #ios-permission-btn {
-            display: none;
+        #ar-button:active {
+            transform: translateX(-50%) scale(0.96);
         }
     </style>
 </head>
 <body>
 
-    <div id="container">
-        <!-- Feed de la Cámara -->
-        <video id="camera-feed" autoplay playsinline muted></video>
+    <!-- Visor 3D con Realidad Aumentada Nativa activada ('ar') -->
+    <model-viewer id="obj-viewer"
+        src="Baseauto.glb"
+        alt="Autito 3D"
+        
+        /* --- ESTOS SON LOS ATRIBUTOS MÁGICOS --- */
+        ar                      /* Activa la Realidad Aumentada */
+        ar-modes="webxr scene-viewer quick-look" /* Intenta WebXR primero, luego nativos */
+        ar-scale="auto"         /* Mantiene la escala real del modelo */
+        camera-controls         /* Permite girar el auto con el dedo antes de ponerlo en AR */
+        touch-action="pan-y"    /* Mejora el scroll en móviles */
+        shadow-intensity="1"    /* Sombra realista en el piso */
+        bounds="tight">
+        
+        <!-- Botón que aparece solo cuando el navegador detecta capacidad AR -->
+        <button slot="ar-button" id="ar-button">
+            📍 Colocar en mi piso
+        </button>
 
-        <!-- Modelo 3D (Ángulo bajado para simular piso) -->
-        <model-viewer id="obj-viewer"
-            src="Baseauto.glb"
-            alt="Autito 3D"
-            camera-controls="false"
-            interaction-prompt="none"
-            shadow-intensity="1.5"
-            bounds="tight"
-            camera-target="auto auto auto"
-            camera-orbit="0deg 75deg auto">
-        </model-viewer>
+    </model-viewer>
 
-        <!-- Botón de Fijar -->
-        <div id="ui-container">
-            <button id="ios-permission-btn">Activar Sensores (iOS)</button>
-            <button id="place-btn">📍 Colocar Objeto</button>
-            <button id="reset-btn" style="display: none;">🔄 Mover de nuevo</button>
-        </div>
-    </div>
-
-    <script>
-        const video = document.getElementById('camera-feed');
-        const viewer = document.getElementById('obj-viewer');
-        const placeBtn = document.getElementById('place-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const iosBtn = document.getElementById('ios-permission-btn');
-
-        let objectPlaced = false;
-
-        // Iniciar Cámara Trasera
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" },
-                    audio: false 
-                });
-                video.srcObject = stream;
-            } catch (err) {
-                console.error("Error accediendo a la cámara:", err);
-                alert("No se pudo acceder a la cámara. Asegúrate de dar permisos de cámara al navegador.");
-            }
-        }
-
-        // Fijar Posición
-        placeBtn.addEventListener('click', () => {
-            if (!objectPlaced) {
-                objectPlaced = true;
-                placeBtn.style.display = 'none';
-                resetBtn.style.display = 'block';
-            }
-        });
-
-        // Reiniciar Posición
-        resetBtn.addEventListener('click', () => {
-            objectPlaced = false;
-            resetBtn.style.display = 'none';
-            placeBtn.style.display = 'block';
-        });
-
-        // Giroscopio / Orientación
-        function handleOrientation(event) {
-            if (objectPlaced) return;
-
-            const alpha = event.alpha || 0;
-            const beta = event.beta || 0; 
-
-            // Mantener un ángulo inclinado mirando hacia abajo (75deg) para simular el piso
-            const clampedBeta = Math.max(30, Math.min(110, beta));
-            viewer.cameraOrbit = `${alpha}deg ${clampedBeta}deg auto`;
-        }
-
-        function setupSensors() {
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                iosBtn.style.display = 'block';
-                iosBtn.addEventListener('click', () => {
-                    DeviceOrientationEvent.requestPermission()
-                        .then(response => {
-                            if (response == 'granted') {
-                                window.addEventListener('deviceorientation', handleOrientation, true);
-                                iosBtn.style.display = 'none';
-                                startCamera();
-                            }
-                        })
-                        .catch(console.error);
-                });
-            } else {
-                window.addEventListener('deviceorientation', handleOrientation, true);
-                startCamera();
-            }
-        }
-
-        window.addEventListener('load', setupSensors);
-    </script>
 </body>
 </html>
