@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Pseudo-AR: Autito 3D</title>
+    <title>Pseudo-AR: Autito Fix</title>
     <!-- Cargamos model-viewer de Google -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <style>
@@ -82,16 +82,20 @@
         <!-- 1. Cámara -->
         <video id="camera-feed" autoplay playsinline muted></video>
 
-        <!-- 2. Autito 3D ajustado -->
+        <!-- 2. Autito 3D con SUPER CORRECCIÓN -->
         <model-viewer id="obj-viewer"
             src="Baseauto.glb"
             alt="Autito 3D"
             camera-controls="false"
             interaction-prompt="none"
             shadow-intensity="1"
-            bounds="tight"
-            camera-target="auto auto auto"
-            ar-status="not-presenting">
+            
+            /* --- LAS CORRECCIONES CLAVE ESTÁN AQUÍ --- */
+            bounds="tight"             /* Forza el encuadre al modelo real */
+            camera-target="auto auto auto" /* Centra el modelo automáticamente */
+            auto-rotate                /* Ayuda a verlo si está desorientado */
+            loading="eager"            /* Carga lo más rápido posible */
+            >
         </model-viewer>
 
         <!-- 3. Controles -->
@@ -124,34 +128,42 @@
             }
         }
 
+        // Función para fijar la orientación
         placeBtn.addEventListener('click', () => {
             if (!objectPlaced) {
                 objectPlaced = true;
                 placeBtn.style.display = 'none';
                 resetBtn.style.display = 'block';
                 viewer.shadowIntensity = 1.5;
+                viewer.autoRotate = false; // Detiene la rotación al colocarlo
             }
         });
 
+        // Función para reiniciar
         resetBtn.addEventListener('click', () => {
             objectPlaced = false;
             resetBtn.style.display = 'none';
             placeBtn.style.display = 'block';
             viewer.shadowIntensity = 1;
+            viewer.autoRotate = true; // Vuelve a rotar
         });
 
+        // Manejo de la orientación con sensores
         function handleOrientation(event) {
             if (objectPlaced) return;
 
             const alpha = event.alpha || 0;
             const beta = event.beta || 0; 
 
+            // Convertimos la orientación del sensor en órbita de cámara
             const clampedBeta = Math.max(0, Math.min(180, beta));
             viewer.cameraOrbit = `${alpha}deg ${clampedBeta}deg auto`;
         }
 
+        // Configuración y permisos de sensores
         function setupSensors() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                // Navegadores iOS (Safari, Chrome iOS)
                 iosBtn.style.display = 'block';
                 iosBtn.addEventListener('click', () => {
                     DeviceOrientationEvent.requestPermission()
@@ -165,6 +177,7 @@
                         .catch(console.error);
                 });
             } else {
+                // Navegadores Android y otros
                 window.addEventListener('deviceorientation', handleOrientation, true);
                 startCamera();
             }
