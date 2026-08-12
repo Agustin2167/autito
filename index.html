@@ -2,626 +2,71 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-    <title>Baseauto AR</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Autito AR - Piso Forzado</title>
+    <!-- Cargamos model-viewer de Google -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-            background: #111;
-        }
-
-        #info {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 12px 18px;
-            border-radius: 20px;
-
-            text-align: center;
-            font-size: 15px;
-        }
-
-        #reset {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-
-            z-index: 10;
-
-            border: none;
-            border-radius: 30px;
-            padding: 14px 25px;
-
-            background: white;
-            color: black;
-
-            font-size: 16px;
-            font-weight: bold;
-
-            display: none;
-        }
-
-        #reticle {
-            position: fixed;
-            width: 45px;
-            height: 45px;
-
-            left: 50%;
-            top: 50%;
-
-            transform: translate(-50%, -50%);
-
-            border: 3px solid #00ff88;
-            border-radius: 50%;
-
-            z-index: 5;
-
-            display: none;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: black; font-family: sans-serif; }
+        #container { position: relative; width: 100%; height: 100%; }
+        #camera-feed { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        model-viewer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: transparent; z-index: 2; --poster-color: transparent; }
+        #ar-button { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 16px 28px; font-size: 18px; font-weight: bold; color: white; background: linear-gradient(135deg, #007bff, #00d2ff); border: none; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; z-index: 100; display: none; /* Oculto hasta confirmar compatibilidad */ }
     </style>
 </head>
-
 <body>
 
-<div id="info">
-    Buscando una superficie...
-</div>
-
-<div id="reticle"></div>
-
-<button id="reset">
-    Volver a colocar
-</button>
-
-<script type="importmap">
-{
-    "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"
-    }
-}
-</script>
-
-<script type="module">
-
-import * as THREE from "three";
-
-import { GLTFLoader } from
-"https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/loaders/GLTFLoader.js";
-
-
-// --------------------------------------------------
-// CONFIGURACIÓN
-// --------------------------------------------------
-
-const MODEL_URL = "./Baseauto.glb";
-
-
-// --------------------------------------------------
-// ELEMENTOS
-// --------------------------------------------------
-
-const info = document.getElementById("info");
-const resetButton = document.getElementById("reset");
-const reticle = document.getElementById("reticle");
-
-
-// --------------------------------------------------
-// THREE.JS
-// --------------------------------------------------
-
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-    70,
-    window.innerWidth / window.innerHeight,
-    0.01,
-    100
-);
-
-const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true
-});
-
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
-
-renderer.xr.enabled = true;
-
-document.body.appendChild(renderer.domElement);
-
-
-// --------------------------------------------------
-// LUCES
-// --------------------------------------------------
-
-const ambientLight = new THREE.HemisphereLight(
-    0xffffff,
-    0xbbbbbb,
-    3
-);
-
-scene.add(ambientLight);
-
-const directionalLight = new THREE.DirectionalLight(
-    0xffffff,
-    2
-);
-
-directionalLight.position.set(1, 3, 2);
-
-scene.add(directionalLight);
-
-
-// --------------------------------------------------
-// CARGAR MODELO
-// --------------------------------------------------
-
-let model = null;
-
-const loader = new GLTFLoader();
-
-loader.load(
-    MODEL_URL,
-
-    function(gltf) {
-
-        model = gltf.scene;
-
-        // Oculto hasta que el usuario lo coloque
-        model.visible = false;
-
-        scene.add(model);
-
-        info.textContent = "Modelo cargado. Buscando una superficie...";
-    },
-
-    function(xhr) {
-
-        if (xhr.total) {
-
-            const percent =
-                (xhr.loaded / xhr.total * 100).toFixed(0);
-
-            info.textContent =
-                "Cargando modelo: " + percent + "%";
-
-        }
-
-    },
-
-    function(error) {
-
-        console.error(error);
-
-        info.textContent =
-            "Error cargando Baseauto.glb";
-    }
-);
-
-
-// --------------------------------------------------
-// VARIABLES AR
-// --------------------------------------------------
-
-let hitTestSource = null;
-let hitTestSourceRequested = false;
-
-let placed = false;
-
-let currentHitMatrix = null;
-
-
-// --------------------------------------------------
-// BOTÓN AR
-// --------------------------------------------------
-
-const arButton = document.createElement("button");
-
-arButton.textContent = "Iniciar AR";
-
-arButton.style.position = "fixed";
-arButton.style.bottom = "90px";
-arButton.style.left = "50%";
-arButton.style.transform = "translateX(-50%)";
-
-arButton.style.zIndex = "20";
-
-arButton.style.padding = "15px 30px";
-
-arButton.style.border = "none";
-arButton.style.borderRadius = "30px";
-
-arButton.style.fontSize = "18px";
-arButton.style.fontWeight = "bold";
-
-document.body.appendChild(arButton);
-
-
-// --------------------------------------------------
-// COMPROBAR AR
-// --------------------------------------------------
-
-if ("xr" in navigator) {
-
-    navigator.xr.isSessionSupported("immersive-ar")
-    .then(function(supported) {
-
-        if (!supported) {
-
-            info.textContent =
-                "Este celular/navegador no soporta WebXR AR.";
-
-        }
-
-    });
-
-} else {
-
-    info.textContent =
-        "Este navegador no soporta WebXR.";
-
-}
-
-
-// --------------------------------------------------
-// INICIAR SESIÓN AR
-// --------------------------------------------------
-
-arButton.addEventListener("click", async function() {
-
-    if (!navigator.xr) {
-
-        alert(
-            "Tu navegador no soporta WebXR AR."
-        );
-
-        return;
-    }
-
-    try {
-
-        const session = await navigator.xr.requestSession(
-            "immersive-ar",
-            {
-                requiredFeatures: [
-                    "hit-test"
-                ],
-
-                optionalFeatures: [
-                    "dom-overlay"
-                ],
-
-                domOverlay: {
-                    root: document.body
-                }
+    <div id="container">
+        <!-- Feed de la Cámara -->
+        <video id="camera-feed" autoplay playsinline muted></video>
+
+        <!-- Visor 3D con AR Nativo FORZADO -->
+        <model-viewer id="obj-viewer"
+            src="Baseauto.glb"
+            alt="Autito 3D"
+            ar
+            /* Eliminamos 'webxr' para forzar los modos nativos que detectan piso */
+            ar-modes="scene-viewer quick-look" 
+            ar-scale="auto"
+            camera-controls
+            shadow-intensity="1.5"
+            bounds="tight">
+            
+            <button slot="ar-button" id="ar-button">
+                📍 Poner en mi piso real
+            </button>
+
+        </model-viewer>
+    </div>
+
+    <script>
+        const video = document.getElementById('camera-feed');
+        const viewer = document.getElementById('obj-viewer');
+        const arButton = document.getElementById('ar-button');
+
+        // 1. Mostrar botón solo si AR Nativo es compatible
+        viewer.addEventListener('ar-status', (event) => {
+            if (event.detail.status !== 'unsupported') {
+                arButton.style.display = 'block';
+            } else {
+                alert("Tu celular o navegador no es compatible con AR de piso.");
             }
-        );
-
-        renderer.xr.setReferenceSpaceType(
-            "local-floor"
-        );
-
-        await renderer.xr.setSession(session);
-
-        arButton.style.display = "none";
-
-        reticle.style.display = "block";
-
-        resetButton.style.display = "block";
-
-        info.textContent =
-            "Mové el celular para detectar el suelo o una mesa.";
-
-        session.addEventListener(
-            "end",
-            function() {
-
-                hitTestSourceRequested = false;
-                hitTestSource = null;
-
-                reticle.style.display = "none";
-
-                arButton.style.display = "block";
-
-                resetButton.style.display = "none";
-
-                placed = false;
-
-                if (model) {
-                    model.visible = false;
-                }
-
-                info.textContent =
-                    "Sesión AR terminada.";
-            }
-        );
-
-    } catch (error) {
-
-        console.error(error);
-
-        alert(
-            "No se pudo iniciar la realidad aumentada.\n\n" +
-            error.message
-        );
-
-    }
-
-});
-
-
-// --------------------------------------------------
-// TOCAR LA PANTALLA PARA COLOCAR
-// --------------------------------------------------
-
-renderer.domElement.addEventListener(
-    "touchend",
-    function(event) {
-
-        if (!hitTestSource || !model) {
-            return;
-        }
-
-        if (placed) {
-            return;
-        }
-
-        // Solo usamos un toque
-        if (event.changedTouches.length !== 1) {
-            return;
-        }
-
-        if (!currentHitMatrix) {
-            return;
-        }
-
-        // ------------------------------------------
-        // POSICIÓN DETECTADA
-        // ------------------------------------------
-
-        const matrix =
-            new THREE.Matrix4();
-
-        matrix.fromArray(currentHitMatrix);
-
-        const position =
-            new THREE.Vector3();
-
-        const quaternion =
-            new THREE.Quaternion();
-
-        const scale =
-            new THREE.Vector3();
-
-        matrix.decompose(
-            position,
-            quaternion,
-            scale
-        );
-
-
-        // ------------------------------------------
-        // COLOCAR MODELO
-        // ------------------------------------------
-
-        model.position.copy(position);
-
-        // Mantener el modelo vertical
-        model.rotation.set(
-            0,
-            model.rotation.y,
-            0
-        );
-
-
-        // ------------------------------------------
-        // AJUSTAR PARA QUE NO QUEDE FLOTANDO
-        // ------------------------------------------
-
-        const box =
-            new THREE.Box3().setFromObject(model);
-
-        const bottom =
-            box.min.y;
-
-        model.position.y -= bottom;
-
-
-        model.visible = true;
-
-        placed = true;
-
-        reticle.style.display = "none";
-
-        info.textContent =
-            "✓ Modelo colocado";
-
-    }
-);
-
-
-// --------------------------------------------------
-// VOLVER A COLOCAR
-// --------------------------------------------------
-
-resetButton.addEventListener(
-    "click",
-    function() {
-
-        placed = false;
-
-        if (model) {
-            model.visible = false;
-        }
-
-        reticle.style.display = "block";
-
-        info.textContent =
-            "Buscando otra superficie...";
-
-    }
-);
-
-
-// --------------------------------------------------
-// HIT TEST
-// --------------------------------------------------
-
-function getHitTestSource(frame) {
-
-    if (
-        hitTestSourceRequested === true
-    ) {
-        return;
-    }
-
-    const session =
-        renderer.xr.getSession();
-
-    session.requestReferenceSpace(
-        "viewer"
-    ).then(function(referenceSpace) {
-
-        session.requestHitTestSource({
-            space: referenceSpace
-        }).then(function(source) {
-
-            hitTestSource = source;
-
         });
 
-    });
-
-    session.addEventListener(
-        "end",
-        function() {
-
-            hitTestSourceRequested = false;
-
-            hitTestSource = null;
-
-        }
-    );
-
-    hitTestSourceRequested = true;
-}
-
-
-// --------------------------------------------------
-// RENDER LOOP AR
-// --------------------------------------------------
-
-renderer.setAnimationLoop(
-    function(timestamp, frame) {
-
-        if (frame) {
-
-            const session =
-                renderer.xr.getSession();
-
-            if (session) {
-
-                getHitTestSource(frame);
-
-                if (hitTestSource) {
-
-                    const referenceSpace =
-                        renderer.xr.getReferenceSpace();
-
-                    const hitTestResults =
-                        frame.getHitTestResults(
-                            hitTestSource
-                        );
-
-
-                    if (
-                        hitTestResults.length > 0
-                    ) {
-
-                        const hit =
-                            hitTestResults[0];
-
-                        const pose =
-                            hit.getPose(
-                                referenceSpace
-                            );
-
-
-                        if (pose) {
-
-                            currentHitMatrix =
-                                pose.transform.matrix;
-
-                            // Mostrar el indicador
-                            reticle.style.display =
-                                "block";
-
-                            if (!placed) {
-
-                                info.textContent =
-                                    "Superficie encontrada. Tocá para colocar el modelo.";
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
+        // 2. Iniciar Cámara de fondo
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" },
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error cámara:", err);
             }
-
         }
 
-        renderer.render(
-            scene,
-            camera
-        );
-
-    }
-);
-
-
-// --------------------------------------------------
-// RESIZE
-// --------------------------------------------------
-
-window.addEventListener(
-    "resize",
-    function() {
-
-        camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
-
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
-        );
-
-    }
-);
-
-</script>
-
+        window.addEventListener('load', startCamera);
+    </script>
 </body>
 </html>
